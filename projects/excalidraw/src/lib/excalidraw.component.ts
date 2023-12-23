@@ -1,4 +1,14 @@
-import {Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild} from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  NgZone,
+  OnInit,
+  Output,
+  ViewChild,
+} from '@angular/core';
 import {render, createElement} from 'preact';
 import {Excalidraw} from "@excalidraw/excalidraw";
 import {
@@ -18,15 +28,14 @@ import {Language} from '@excalidraw/excalidraw/types/i18n';
 @Component({
   selector: 'lib-excalidraw',
   standalone: true,
-  imports: [],
   template: `
-      <div style="width: 1500px;height: 800px;border: 1px red dashed" #container></div>`,
-  styles: ``,
+      <div #container></div>`,
+  host: {
+    style: 'display: block;',
+  },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ExcalidrawComponent implements OnInit, ExcalidrawImperativeAPI {
-  @ViewChild("container", {static: true})
-  container!: ElementRef;
-  private excalidrawAPI!: ExcalidrawImperativeAPI;
 
   @Input()
   initialData?: ExcalidrawInitialDataState | null | Promise<ExcalidrawInitialDataState | null>;
@@ -66,7 +75,7 @@ export class ExcalidrawComponent implements OnInit, ExcalidrawImperativeAPI {
   validateEmbeddable?: boolean | string[] | RegExp | RegExp[] | ((link: string) => boolean | undefined);
 
   @Output()
-  change = new EventEmitter<{elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles}>();
+  change = new EventEmitter<{ elements: readonly ExcalidrawElement[], appState: AppState, files: BinaryFiles }>();
   @Output()
   pointerUpdate = new EventEmitter<{
     pointer: {
@@ -78,37 +87,46 @@ export class ExcalidrawComponent implements OnInit, ExcalidrawImperativeAPI {
     pointersMap: Gesture["pointers"];
   }>();
   @Output()
-  pointerDown = new EventEmitter<{activeTool: AppState["activeTool"], pointerDownState: PointerDownState}>();
-  scrollChange = new EventEmitter<{scrollX: number, scrollY: number}>();
-  constructor() {
+  pointerDown = new EventEmitter<{ activeTool: AppState["activeTool"], pointerDownState: PointerDownState }>();
+  @Output()
+  scrollChange = new EventEmitter<{ scrollX: number, scrollY: number }>();
+
+  private excalidrawAPI!: ExcalidrawImperativeAPI;
+
+  constructor(
+    private container: ElementRef,
+    private ngZone: NgZone,
+  ) {
   }
 
   ngOnInit(): void {
-    render(createElement(Excalidraw, {
-      initialData: this.initialData,
-      excalidrawAPI: (api: ExcalidrawImperativeAPI) => this.excalidrawAPI = api,
-      UIOptions: this.UIOptions,
-      onChange: (elements, appState, files) => this.change.emit({elements, appState, files}),
-      isCollaborating: this.isCollaborating,
-      onPointerUpdate: payload => this.pointerUpdate.emit(payload),
-      onPaste: this.beforePaste,
-      langCode: this.langCode,
-      viewModeEnabled: this.viewModeEnabled,
-      zenModeEnabled: this.zenModeEnabled,
-      gridModeEnabled: this.gridModeEnabled,
-      objectsSnapModeEnabled: this.objectsSnapModeEnabled,
-      libraryReturnUrl: this.libraryReturnUrl,
-      theme: this.theme,
-      name: this.name,
-      detectScroll: this.detectScroll,
-      handleKeyboardGlobally: this.handleKeyboardGlobally,
-      onLibraryChange: this.beforeLibraryChange,
-      autoFocus: this.autoFocus,
-      generateIdForFile: this.generateIdForFile,
-      onPointerDown: (activeTool,pointerDownState)=> this.pointerDown.emit({activeTool,pointerDownState}),
-      onScrollChange: (scrollX, scrollY) => this.scrollChange.emit({scrollX,scrollY}),
-      validateEmbeddable: this.validateEmbeddable,
-    }), this.container.nativeElement);
+    this.ngZone.runOutsideAngular(() => {
+      render(createElement(Excalidraw, {
+        initialData: this.initialData,
+        excalidrawAPI: (api: ExcalidrawImperativeAPI) => this.excalidrawAPI = api,
+        UIOptions: this.UIOptions,
+        onChange: (elements, appState, files) => this.change.emit({elements, appState, files}),
+        isCollaborating: this.isCollaborating,
+        onPointerUpdate: payload => this.pointerUpdate.emit(payload),
+        onPaste: this.beforePaste,
+        langCode: this.langCode,
+        viewModeEnabled: this.viewModeEnabled,
+        zenModeEnabled: this.zenModeEnabled,
+        gridModeEnabled: this.gridModeEnabled,
+        objectsSnapModeEnabled: this.objectsSnapModeEnabled,
+        libraryReturnUrl: this.libraryReturnUrl,
+        theme: this.theme,
+        name: this.name,
+        detectScroll: this.detectScroll,
+        handleKeyboardGlobally: this.handleKeyboardGlobally,
+        onLibraryChange: this.beforeLibraryChange,
+        autoFocus: this.autoFocus,
+        generateIdForFile: this.generateIdForFile,
+        onPointerDown: (activeTool,pointerDownState)=> this.pointerDown.emit({activeTool,pointerDownState}),
+        onScrollChange: (scrollX, scrollY) => this.scrollChange.emit({scrollX,scrollY}),
+        validateEmbeddable: this.validateEmbeddable,
+      }), this.container.nativeElement);
+    });
   }
 
   addFiles(data: BinaryFileData[]): void {
@@ -131,18 +149,19 @@ export class ExcalidrawComponent implements OnInit, ExcalidrawImperativeAPI {
     return this.excalidrawAPI.getSceneElementsIncludingDeleted();
   }
 
-  set history(history: InstanceType<typeof App>["resetHistory"]){
+  set history(history: InstanceType<typeof App>["resetHistory"]) {
     this.excalidrawAPI.history = history;
   }
 
-  get history(): InstanceType<typeof App>["resetHistory"]{
+  get history(): InstanceType<typeof App>["resetHistory"] {
     return this.excalidrawAPI.history;
   }
-  set id(id: string){
+
+  set id(id: string) {
     this.excalidrawAPI.id = id;
   }
 
-  get id(): string{
+  get id(): string {
     return this.excalidrawAPI.id;
   }
 
@@ -161,18 +180,20 @@ export class ExcalidrawComponent implements OnInit, ExcalidrawImperativeAPI {
   refresh(): void {
     return this.excalidrawAPI.refresh();
   }
-  set resetCursor(resetCursor: InstanceType<typeof App>["resetCursor"]){
+
+  set resetCursor(resetCursor: InstanceType<typeof App>["resetCursor"]) {
     this.excalidrawAPI.resetScene = resetCursor;
   }
 
-  get resetCursor(): InstanceType<typeof App>["resetScene"]{
+  get resetCursor(): InstanceType<typeof App>["resetScene"] {
     return this.excalidrawAPI.resetCursor;
   }
 
-  set resetScene(setCursor: InstanceType<typeof App>["resetScene"]){
+  set resetScene(setCursor: InstanceType<typeof App>["resetScene"]) {
     this.excalidrawAPI.resetScene = setCursor;
   }
-  get resetScene(): InstanceType<typeof App>["resetScene"]{
+
+  get resetScene(): InstanceType<typeof App>["resetScene"] {
     return this.excalidrawAPI.resetScene;
   }
 
@@ -189,7 +210,7 @@ export class ExcalidrawComponent implements OnInit, ExcalidrawImperativeAPI {
     animate?: boolean;
     duration?: number
   } | undefined): void {
-    return this.excalidrawAPI.scrollToContent(target,opts);
+    return this.excalidrawAPI.scrollToContent(target, opts);
   }
 
   setActiveTool(tool: ({ type: Exclude<ToolType, "image"> } & { locked?: boolean }) | ({
@@ -198,11 +219,12 @@ export class ExcalidrawComponent implements OnInit, ExcalidrawImperativeAPI {
   } & { locked?: boolean }) | ({ type: "custom"; customType: string } & { locked?: boolean })): void {
     return this.excalidrawAPI.setActiveTool(tool);
   }
-  set setCursor(setCursor: InstanceType<typeof App>["setCursor"]){
+
+  set setCursor(setCursor: InstanceType<typeof App>["setCursor"]) {
     this.excalidrawAPI.setCursor = setCursor;
   }
 
-  get setCursor(): InstanceType<typeof App>["setCursor"]{
+  get setCursor(): InstanceType<typeof App>["setCursor"] {
     return this.excalidrawAPI.setCursor;
   }
 
